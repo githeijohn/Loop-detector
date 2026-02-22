@@ -1,11 +1,8 @@
 import streamlit as st
-import requests
 import random, math, pandas as pd
 
-URL = "https://lite.playbetman.com/league/P6FAI/..."
-
 st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
-st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting + Trend Tracker)")
+st.title("PlayBetMan Predictor (Paste Odds + Trend Tracker)")
 
 def advanced_probabilities(home_odds, draw_odds, away_odds, alpha=0.5, beta=0.05):
     weights = [
@@ -37,28 +34,27 @@ def trend_arrow(new, old):
     except:
         return "?"
 
-if st.button("Run Predictions"):
-    response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-    lines = response.text.splitlines()
+# Text area for pasting odds
+raw_text = st.text_area("Paste odds text here:", height=300)
+
+if st.button("Run Predictions") and raw_text.strip():
+    lines = raw_text.splitlines()
     fixtures = []
 
     for i in range(len(lines)):
-        if lines[i].strip() == "1":   # odds start marker
+        if lines[i].strip() == "1":
             try:
                 home_odds = lines[i+1].strip()
-                draw_odds = lines[i+3].strip() if lines[i+2].strip() == "X" else None
-                away_odds = lines[i+5].strip() if lines[i+4].strip() == "2" else None
-
+                draw_odds = lines[i+3].strip()
+                away_odds = lines[i+5].strip()
                 home = lines[i-3].strip()
                 away = lines[i-1].strip()
-
-                if home_odds and draw_odds and away_odds:
-                    fixtures.append((home, away, home_odds, draw_odds, away_odds))
+                fixtures.append((home, away, home_odds, draw_odds, away_odds))
             except Exception:
                 continue
 
     if not fixtures:
-        st.warning("⚠️ No odds found — check site structure.")
+        st.warning("⚠️ No odds found in pasted text.")
     else:
         if "previous_odds" not in st.session_state:
             st.session_state.previous_odds = {}
