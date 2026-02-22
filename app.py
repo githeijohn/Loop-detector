@@ -3,7 +3,7 @@ import requests
 import re
 import random
 import math
-import matplotlib.pyplot as plt
+import pandas as pd
 from datetime import datetime
 
 URL = "https://lite.playbetman.com/league/P6FAI/44454d4f36352a50364641492a4b45532a31303030302e302a3432326232653339373466333464393662666366383734633464646139353837?from=initPlay&lang=en&isDemo=1#"
@@ -58,15 +58,12 @@ if st.button("Run Predictions"):
 
         st.info(f"🔮 Predicted Outcome: {prediction} ({confidence*100:.2f}% confidence)")
 
-        # Bar chart visualization
-        fig, ax = plt.subplots()
-        ax.bar(dist.keys(), dist.values(), color=['green','gray','red'])
-        ax.set_ylim(0,1)
-        ax.set_ylabel("Probability")
-        ax.set_title(f"Outcome Distribution for {home} vs {away}")
-        for label, prob in dist.items():
-            ax.text(label, prob+0.01, f"{prob*100:.1f}%", ha='center')
-        st.pyplot(fig)
+        # Native Streamlit bar chart
+        df = pd.DataFrame({
+            "Outcome": list(dist.keys()),
+            "Probability": list(dist.values())
+        })
+        st.bar_chart(df.set_index("Outcome"))
 
     st.write("⏳ Auto-refresh every 2 minutes keeps predictions aligned with PlayBetMan’s match cycle.")
     st.experimental_rerun()
