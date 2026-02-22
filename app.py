@@ -51,12 +51,14 @@ if st.button("Run Predictions"):
     now = datetime.now()
 
     if not fixtures:
-        st.warning("⚠️ No odds available right now. Predictions will run once odds are posted.")
+        st.warning("⚠️ No fixtures found. Odds may not be posted yet.")
     else:
         for i, (time_str, home, away, home_odds, draw_odds, away_odds) in enumerate(fixtures, start=1):
-            # Skip if any odds are missing
-            if not home_odds or not draw_odds or not away_odds:
-                st.write(f"Match {i}: {home} vs {away} → Odds not yet available, skipping prediction.")
+            try:
+                # Convert odds to float safely
+                float(home_odds); float(draw_odds); float(away_odds)
+            except ValueError:
+                st.write(f"Match {i}: {home} vs {away} → Odds not valid, skipping prediction.")
                 continue
 
             match_time = datetime.strptime(time_str, "%H:%M")
