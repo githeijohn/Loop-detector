@@ -79,4 +79,5 @@ if st.button("Fetch Ligi Bigi Matches"):
         st.write("Loops detected:")
         for loop in loops:
             st.write(f"Match {loop[0]}: {loop[1]} {loop[2]} - {loop[3]} {loop[4]}")
-            else:
+    else:
+        st.write("No loops detected this season!")
