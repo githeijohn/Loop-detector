@@ -42,7 +42,7 @@ class MatchParser(HTMLParser):
             self.matches.append(self.current)
             self.current = {}
 
-st.title("Betika Ligi Bigi Loop Detector")
+st.title("Betika Ligi Bigi Loop Detector & Predictor")
 
 if st.button("Fetch Ligi Bigi Matches"):
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -66,17 +66,17 @@ if st.button("Fetch Ligi Bigi Matches"):
             st.success(f"Match {i}: {home} {goals_home} - {goals_away} {away}")
             seen_results.append(result)
 
-        if seen_results:
-            freq = Counter(seen_results)
-            total = sum(freq.values())
-            choices, weights = zip(*[(res, count/total) for res, count in freq.items()])
-            predicted = choices[0]
-            st.info(f"🔮 Predicted Next: {predicted[0]} {predicted[1]} - {predicted[2]} {predicted[3]}")
+    # Prediction logic
+    if seen_results:
+        freq = Counter(seen_results)
+        most_common = freq.most_common(1)[0][0]  # most frequent result
+        st.subheader("🔮 Predicted Next Match Outcome")
+        st.info(f"{most_common[0]} {most_common[1]} - {most_common[2]} {most_common[3]}")
 
+    # Summary
     st.subheader("Season Summary")
     if loops:
         st.write("Loops detected:")
         for loop in loops:
             st.write(f"Match {loop[0]}: {loop[1]} {loop[2]} - {loop[3]} {loop[4]}")
-    else:
-        st.write("No loops detected this season!")
+            else:
