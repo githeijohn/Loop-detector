@@ -5,7 +5,7 @@ import random, math, pandas as pd
 URL = "https://lite.playbetman.com/league/P6FAI/..."
 
 st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
-st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
+st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting + Trend Tracker)")
 
 def advanced_probabilities(home_odds, draw_odds, away_odds, alpha=0.5, beta=0.05):
     weights = [
@@ -28,20 +28,29 @@ def monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds, trials=1
     dist = {label: outcomes.count(label)/len(outcomes) for label in labels}
     return prediction, confidence, dist
 
+def trend_arrow(new, old):
+    try:
+        new, old = float(new), float(old)
+        if new < old: return "↓"
+        elif new > old: return "↑"
+        else: return "→"
+    except:
+        return "?"
+
 if st.button("Run Predictions"):
     response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-    text_blocks = response.text.splitlines()  # flatten into lines
+    lines = response.text.splitlines()
     fixtures = []
 
-    for i in range(len(text_blocks)):
-        if text_blocks[i].strip() == "1":  # odds start marker
+    for i in range(len(lines)):
+        if lines[i].strip() == "1":   # odds start marker
             try:
-                home_odds = text_blocks[i+1].strip()
-                draw_odds = text_blocks[i+3].strip() if text_blocks[i+2].strip() == "X" else None
-                away_odds = text_blocks[i+5].strip() if text_blocks[i+4].strip() == "2" else None
+                home_odds = lines[i+1].strip()
+                draw_odds = lines[i+3].strip() if lines[i+2].strip() == "X" else None
+                away_odds = lines[i+5].strip() if lines[i+4].strip() == "2" else None
 
-                home = text_blocks[i-3].strip()
-                away = text_blocks[i-1].strip()
+                home = lines[i-3].strip()
+                away = lines[i-1].strip()
 
                 if home_odds and draw_odds and away_odds:
                     fixtures.append((home, away, home_odds, draw_odds, away_odds))
@@ -51,18 +60,25 @@ if st.button("Run Predictions"):
     if not fixtures:
         st.warning("⚠️ No odds found — check site structure.")
     else:
+        if "previous_odds" not in st.session_state:
+            st.session_state.previous_odds = {}
+
         for i, (home, away, home_odds, draw_odds, away_odds) in enumerate(fixtures, start=1):
-            try:
-                float(home_odds); float(draw_odds); float(away_odds)
-            except ValueError:
-                st.write(f"Match {i}: {home} vs {away} → Odds invalid, skipping.")
-                continue
+            match_key = f"{home} vs {away}"
+            prev = st.session_state.previous_odds.get(match_key, (home_odds, draw_odds, away_odds))
 
             st.subheader(f"Match {i}: {home} vs {away}")
-            st.write(f"Odds → Home: {home_odds}, Draw: {draw_odds}, Away: {away_odds}")
+            st.write(
+                f"Odds → Home: {home_odds} {trend_arrow(home_odds, prev[0])}, "
+                f"Draw: {draw_odds} {trend_arrow(draw_odds, prev[1])}, "
+                f"Away: {away_odds} {trend_arrow(away_odds, prev[2])}"
+            )
 
             prediction, confidence, dist = monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds)
             st.info(f"🔮 Predicted Outcome: {prediction} ({confidence*100:.2f}% confidence)")
 
             df = pd.DataFrame({"Outcome": list(dist.keys()), "Probability": list(dist.values())})
             st.bar_chart(df.set_index("Outcome"))
+
+            # Save current odds for trend tracking
+            st.session_state.previous_odds[match_key] = (home_odds, draw_odds, away_odds)
