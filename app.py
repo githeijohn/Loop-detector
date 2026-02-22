@@ -9,7 +9,7 @@ from datetime import datetime
 URL = "https://lite.playbetman.com/league/P6FAI/44454d4f36352a50364641492a4b45532a31303030302e302a3432326232653339373466333464393662666366383734633464646139353837?from=initPlay&lang=en&isDemo=1#"
 
 st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
-st.title("PlayBetMan Real-Time Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
+st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
 
 def advanced_probabilities(home_odds, draw_odds, away_odds, alpha=0.5, beta=0.05):
     # Exponential weighting
@@ -68,6 +68,5 @@ if st.button("Run Predictions"):
             ax.text(label, prob+0.01, f"{prob*100:.1f}%", ha='center')
         st.pyplot(fig)
 
-    # Auto-refresh every 2 minutes
-    st.write("⏳ This app auto-refreshes every 2 minutes to sync with PlayBetMan’s match cycle.")
+    st.write("⏳ Auto-refresh every 2 minutes keeps predictions aligned with PlayBetMan’s match cycle.")
     st.experimental_rerun()
