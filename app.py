@@ -8,6 +8,9 @@ from datetime import datetime
 
 URL = "https://lite.playbetman.com/league/P6FAI/44454d4f36352a50364641492a4b45532a31303030302e302a3432326232653339373466333464393662666366383734633464646139353837?from=initPlay&lang=en&isDemo=1#"
 
+# ✅ Auto-refresh every 2 minutes (120000 ms)
+count = st.experimental_autorefresh(interval=120000, limit=None, key="refresh")
+
 st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
 st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
 
@@ -65,5 +68,4 @@ if st.button("Run Predictions"):
         })
         st.bar_chart(df.set_index("Outcome"))
 
-    st.write("⏳ Auto-refresh every 2 minutes keeps predictions aligned with PlayBetMan’s match cycle.")
-    st.experimental_rerun()
+st.write("⏳ This app auto-refreshes every 2 minutes to sync with PlayBetMan’s match cycle.")
