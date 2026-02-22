@@ -1,6 +1,5 @@
 import streamlit as st
 import requests
-from bs4 import BeautifulSoup
 import random, math, pandas as pd
 
 URL = "https://lite.playbetman.com/league/P6FAI/..."
@@ -31,26 +30,21 @@ def monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds, trials=1
 
 if st.button("Run Predictions"):
     response = requests.get(URL, headers={"User-Agent": "Mozilla/5.0"})
-    soup = BeautifulSoup(response.text, "html.parser")
-
-    text_blocks = soup.get_text(separator="\n").splitlines()
+    text_blocks = response.text.splitlines()  # flatten into lines
     fixtures = []
 
-    # Scan through lines and capture odds in the 1 X 2 format
     for i in range(len(text_blocks)):
-        if text_blocks[i].strip() == "1":
+        if text_blocks[i].strip() == "1":  # odds start marker
             try:
                 home_odds = text_blocks[i+1].strip()
-                if text_blocks[i+2].strip() == "X":
-                    draw_odds = text_blocks[i+3].strip()
-                if text_blocks[i+4].strip() == "2":
-                    away_odds = text_blocks[i+5].strip()
+                draw_odds = text_blocks[i+3].strip() if text_blocks[i+2].strip() == "X" else None
+                away_odds = text_blocks[i+5].strip() if text_blocks[i+4].strip() == "2" else None
 
-                # Backtrack to get team names
                 home = text_blocks[i-3].strip()
                 away = text_blocks[i-1].strip()
 
-                fixtures.append((home, away, home_odds, draw_odds, away_odds))
+                if home_odds and draw_odds and away_odds:
+                    fixtures.append((home, away, home_odds, draw_odds, away_odds))
             except Exception:
                 continue
 
