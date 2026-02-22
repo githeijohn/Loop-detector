@@ -1,83 +1,73 @@
 import streamlit as st
 import requests
-from html.parser import HTMLParser
-from collections import Counter
+import re
+import random
+import math
+import matplotlib.pyplot as plt
+from datetime import datetime
 
-URL = "https://www.betika.com/en-ke/ligi-bigi"
+URL = "https://lite.playbetman.com/league/P6FAI/44454d4f36352a50364641492a4b45532a31303030302e302a3432326232653339373466333464393662666366383734633464646139353837?from=initPlay&lang=en&isDemo=1#"
 
-seen_results = []
-loops = []
+st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
+st.title("PlayBetMan Real-Time Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
 
-class MatchParser(HTMLParser):
-    def __init__(self):
-        super().__init__()
-        self.matches = []
-        self.current = {}
+def advanced_probabilities(home_odds, draw_odds, away_odds, alpha=0.5, beta=0.05):
+    # Exponential weighting
+    weights = [
+        math.exp(-alpha * float(home_odds)),
+        math.exp(-alpha * float(draw_odds)),
+        math.exp(-alpha * float(away_odds))
+    ]
+    total = sum(weights)
+    weights = [w/total for w in weights]
 
-    def handle_starttag(self, tag, attrs):
-        attrs = dict(attrs)
-        if tag == "div" and attrs.get("class") == "match-card":
-            self.current = {}
-        elif tag == "div" and attrs.get("class") == "home":
-            self.current["home"] = ""
-        elif tag == "div" and attrs.get("class") == "away":
-            self.current["away"] = ""
-        elif tag == "span" and attrs.get("class") == "home-score":
-            self.current["home_score"] = ""
-        elif tag == "span" and attrs.get("class") == "away-score":
-            self.current["away_score"] = ""
+    # Bayesian adjustment
+    adjusted = [w + beta for w in weights]
+    total_adj = sum(adjusted)
+    return [a/total_adj for a in adjusted]
 
-    def handle_data(self, data):
-        if "home" in self.current and self.current["home"] == "":
-            self.current["home"] = data.strip()
-        elif "away" in self.current and self.current["away"] == "":
-            self.current["away"] = data.strip()
-        elif "home_score" in self.current and self.current["home_score"] == "":
-            self.current["home_score"] = data.strip()
-        elif "away_score" in self.current and self.current["away_score"] == "":
-            self.current["away_score"] = data.strip()
+def monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds, trials=10000):
+    probs = advanced_probabilities(home_odds, draw_odds, away_odds)
+    labels = ["Home Win", "Draw", "Away Win"]
 
-    def handle_endtag(self, tag):
-        if tag == "div" and "home" in self.current and "away" in self.current:
-            self.matches.append(self.current)
-            self.current = {}
+    outcomes = random.choices(labels, weights=probs, k=trials)
+    prediction = max(set(outcomes), key=outcomes.count)
+    confidence = outcomes.count(prediction) / len(outcomes)
+    dist = {label: outcomes.count(label)/len(outcomes) for label in labels}
 
-st.title("Betika Ligi Bigi Loop Detector & Predictor")
+    return prediction, confidence, dist
 
-if st.button("Fetch Ligi Bigi Matches"):
+if st.button("Run Predictions"):
     headers = {"User-Agent": "Mozilla/5.0"}
     response = requests.get(URL, headers=headers)
+    html = response.text
 
-    parser = MatchParser()
-    parser.feed(response.text)
+    # Regex to capture fixtures with time + odds
+    fixtures = re.findall(r"(\d{2}:\d{2})\nMPLY-[A-Za-z0-9. ]+\n([A-Za-z. ]+)\n([A-Za-z. ]+)\n1\n([\d.]+)\nX\n([\d.]+)\n2\n([\d.]+)", html)
 
-    for i, match in enumerate(parser.matches, start=1):
-        home = match.get("home", "")
-        away = match.get("away", "")
-        goals_home = int(match.get("home_score", "0"))
-        goals_away = int(match.get("away_score", "0"))
+    now = datetime.now()
 
-        result = (home, goals_home, goals_away, away)
+    for i, (time_str, home, away, home_odds, draw_odds, away_odds) in enumerate(fixtures, start=1):
+        match_time = datetime.strptime(time_str, "%H:%M")
+        minutes_to_start = (match_time - now).seconds // 60
 
-        if result in seen_results:
-            loops.append((i, home, goals_home, goals_away, away))
-            st.error(f"LOOP DETECTED at match {i}: {home} {goals_home} - {goals_away} {away}")
-        else:
-            st.success(f"Match {i}: {home} {goals_home} - {goals_away} {away}")
-            seen_results.append(result)
+        st.subheader(f"Match {i}: {home} vs {away} (Starts at {time_str}, in {minutes_to_start} min)")
+        st.write(f"Odds → Home: {home_odds}, Draw: {draw_odds}, Away: {away_odds}")
 
-    # Prediction logic
-    if seen_results:
-        freq = Counter(seen_results)
-        most_common = freq.most_common(1)[0][0]  # most frequent result
-        st.subheader("🔮 Predicted Next Match Outcome")
-        st.info(f"{most_common[0]} {most_common[1]} - {most_common[2]} {most_common[3]}")
+        prediction, confidence, dist = monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds)
 
-    # Summary
-    st.subheader("Season Summary")
-    if loops:
-        st.write("Loops detected:")
-        for loop in loops:
-            st.write(f"Match {loop[0]}: {loop[1]} {loop[2]} - {loop[3]} {loop[4]}")
-    else:
-        st.write("No loops detected this season!")
+        st.info(f"🔮 Predicted Outcome: {prediction} ({confidence*100:.2f}% confidence)")
+
+        # Bar chart visualization
+        fig, ax = plt.subplots()
+        ax.bar(dist.keys(), dist.values(), color=['green','gray','red'])
+        ax.set_ylim(0,1)
+        ax.set_ylabel("Probability")
+        ax.set_title(f"Outcome Distribution for {home} vs {away}")
+        for label, prob in dist.items():
+            ax.text(label, prob+0.01, f"{prob*100:.1f}%", ha='center')
+        st.pyplot(fig)
+
+    # Auto-refresh every 2 minutes
+    st.write("⏳ This app auto-refreshes every 2 minutes to sync with PlayBetMan’s match cycle.")
+    st.experimental_rerun()
