@@ -6,10 +6,7 @@ import math
 import pandas as pd
 from datetime import datetime
 
-URL = "https://lite.playbetman.com/league/P6FAI/44454d4f36352a50364641492a4b45532a31303030302e302a3432326232653339373466333464393662666366383734633464646139353837?from=initPlay&lang=en&isDemo=1#"
-
-# ✅ Auto-refresh every 2 minutes (120000 ms)
-count = st.experimental_autorefresh(interval=120000, limit=None, key="refresh")
+URL = "https://lite.playbetman.com/league/P6FAI/..."
 
 st.set_page_config(page_title="PlayBetMan Predictor", layout="wide")
 st.title("PlayBetMan Predictor (Monte Carlo + Bayesian + Exponential Weighting)")
@@ -46,26 +43,35 @@ if st.button("Run Predictions"):
     html = response.text
 
     # Regex to capture fixtures with time + odds
-    fixtures = re.findall(r"(\d{2}:\d{2})\nMPLY-[A-Za-z0-9. ]+\n([A-Za-z. ]+)\n([A-Za-z. ]+)\n1\n([\d.]+)\nX\n([\d.]+)\n2\n([\d.]+)", html)
+    fixtures = re.findall(
+        r"(\d{2}:\d{2})\nMPLY-[A-Za-z0-9. ]+\n([A-Za-z. ]+)\n([A-Za-z. ]+)\n1\n([\d.]+)\nX\n([\d.]+)\n2\n([\d.]+)",
+        html
+    )
 
     now = datetime.now()
 
-    for i, (time_str, home, away, home_odds, draw_odds, away_odds) in enumerate(fixtures, start=1):
-        match_time = datetime.strptime(time_str, "%H:%M")
-        minutes_to_start = (match_time - now).seconds // 60
+    if not fixtures:
+        st.warning("⚠️ No odds available right now. Predictions will run once odds are posted.")
+    else:
+        for i, (time_str, home, away, home_odds, draw_odds, away_odds) in enumerate(fixtures, start=1):
+            # Skip if any odds are missing
+            if not home_odds or not draw_odds or not away_odds:
+                st.write(f"Match {i}: {home} vs {away} → Odds not yet available, skipping prediction.")
+                continue
 
-        st.subheader(f"Match {i}: {home} vs {away} (Starts at {time_str}, in {minutes_to_start} min)")
-        st.write(f"Odds → Home: {home_odds}, Draw: {draw_odds}, Away: {away_odds}")
+            match_time = datetime.strptime(time_str, "%H:%M")
+            minutes_to_start = (match_time - now).seconds // 60
 
-        prediction, confidence, dist = monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds)
+            st.subheader(f"Match {i}: {home} vs {away} (Starts at {time_str}, in {minutes_to_start} min)")
+            st.write(f"Odds → Home: {home_odds}, Draw: {draw_odds}, Away: {away_odds}")
 
-        st.info(f"🔮 Predicted Outcome: {prediction} ({confidence*100:.2f}% confidence)")
+            prediction, confidence, dist = monte_carlo_simulation(home, away, home_odds, draw_odds, away_odds)
 
-        # Native Streamlit bar chart
-        df = pd.DataFrame({
-            "Outcome": list(dist.keys()),
-            "Probability": list(dist.values())
-        })
-        st.bar_chart(df.set_index("Outcome"))
+            st.info(f"🔮 Predicted Outcome: {prediction} ({confidence*100:.2f}% confidence)")
 
-st.write("⏳ This app auto-refreshes every 2 minutes to sync with PlayBetMan’s match cycle.")
+            # Native Streamlit bar chart
+            df = pd.DataFrame({
+                "Outcome": list(dist.keys()),
+                "Probability": list(dist.values())
+            })
+            st.bar_chart(df.set_index("Outcome"))
