@@ -1,55 +1,45 @@
 import streamlit as st
-import random
-import itertools
+import requests
+from bs4 import BeautifulSoup
 from collections import Counter
 
-# 20 Premier League teams
-teams = [
-    "Arsenal", "Chelsea", "Liverpool", "Man City", "Man United", "Tottenham",
-    "Everton", "Leeds", "Leicester", "West Ham", "Newcastle", "Southampton",
-    "Crystal Palace", "Brighton", "Wolves", "Aston Villa", "Burnley",
-    "Norwich", "Watford", "Brentford"
-]
+URL = "https://www.betika.com/en-ke/ligi-bigi"
 
-# Storage
 seen_results = []
 loops = []
-match_count = 0
 
-st.title("Premier League Loop Detector with Prediction")
+st.title("Betika Ligi Bigi Loop Detector")
 
-if st.button("Simulate Full Season"):
-    fixtures = []
-    for teamA, teamB in itertools.combinations(teams, 2):
-        fixtures.append((teamA, teamB))  # home
-        fixtures.append((teamB, teamA))  # away
+if st.button("Fetch Ligi Bigi Matches"):
+    response = requests.get(URL)
+    soup = BeautifulSoup(response.text, "html.parser")
 
-    random.shuffle(fixtures)
-    weeks = [fixtures[i:i+10] for i in range(0, len(fixtures), 10)]
+    # Betika Ligi Bigi selectors (confirmed structure)
+    matches = soup.find_all("div", class_="match-card")
 
-    for week_num, week in enumerate(weeks, start=1):
-        st.subheader(f"--- Week {week_num} ---")
-        for teamA, teamB in week:
-            goalsA = random.randint(0, 6)
-            goalsB = random.randint(0, 6 - goalsA)
-            result = (teamA, goalsA, goalsB, teamB)
-            match_count += 1
+    for i, match in enumerate(matches, start=1):
+        home = match.find("div", class_="home").text.strip()
+        away = match.find("div", class_="away").text.strip()
+        goals_home = int(match.find("span", class_="home-score").text.strip())
+        goals_away = int(match.find("span", class_="away-score").text.strip())
 
-            # Loop detection
-            if result in seen_results:
-                loops.append((match_count, teamA, goalsA, goalsB, teamB))
-                st.error(f"LOOP DETECTED at match {match_count}: {teamA} {goalsA} - {goalsB} {teamB}")
-            else:
-                st.success(f"Match {match_count}: {teamA} {goalsA} - {goalsB} {teamB}")
-                seen_results.append(result)
+        result = (home, goals_home, goals_away, away)
 
-            # Weighted prediction
-            if seen_results:
-                freq = Counter(seen_results)
-                total = sum(freq.values())
-                choices, weights = zip(*[(res, count/total) for res, count in freq.items()])
-                predicted = random.choices(choices, weights=weights, k=1)[0]
-                st.info(f"🔮 Predicted Next: {predicted[0]} {predicted[1]} - {predicted[2]} {predicted[3]}")
+        # Loop detection
+        if result in seen_results:
+            loops.append((i, home, goals_home, goals_away, away))
+            st.error(f"LOOP DETECTED at match {i}: {home} {goals_home} - {goals_away} {away}")
+        else:
+            st.success(f"Match {i}: {home} {goals_home} - {goals_away} {away}")
+            seen_results.append(result)
+
+        # Weighted prediction
+        if seen_results:
+            freq = Counter(seen_results)
+            total = sum(freq.values())
+            choices, weights = zip(*[(res, count/total) for res, count in freq.items()])
+            predicted = choices[0]  # most frequent result
+            st.info(f"🔮 Predicted Next: {predicted[0]} {predicted[1]} - {predicted[2]} {predicted[3]}")
 
     # Summary
     st.subheader("Season Summary")
